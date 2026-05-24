@@ -45,6 +45,35 @@ TESS_LANG = {
 # These scripts need lighter image preprocessing (no aggressive threshold)
 _CJK_TESS = {"jpn", "chi_sim", "chi_tra", "kor"}
 
+# EasyOCR lang codes for CJK languages (much more accurate than Tesseract)
+_EASYOCR_LANG = {
+    "ja":    ["ja"],
+    "zh-CN": ["ch_sim"],
+    "zh-TW": ["ch_tra"],
+    "ko":    ["ko"],
+}
+
+# Cached EasyOCR readers (initialization is slow — only done once per lang)
+_easyocr_readers: dict = {}
+
+
+def _easy_ocr(image_rgb: np.ndarray, lang_codes: list) -> str | None:
+    """Try EasyOCR on an RGB numpy array. Returns None if not installed or fails."""
+    try:
+        import easyocr
+        key = tuple(lang_codes)
+        if key not in _easyocr_readers:
+            _easyocr_readers[key] = easyocr.Reader(lang_codes, gpu=False, verbose=False)
+        reader = _easyocr_readers[key]
+        results = reader.readtext(image_rgb, detail=0)
+        # CJK text has no word spaces — join without separator
+        return "".join(results).strip() or None
+    except ImportError:
+        return None
+    except Exception:
+        return None
+
+
 # ------------------------------------------------------------------
 # Romanization helpers (lazy-imported to avoid startup cost)
 # ------------------------------------------------------------------
@@ -178,16 +207,40 @@ class ScreenProcessor:
                 f"or switch Source Language to Auto Detect.]"
             )
 
-        arr  = np.array(image)
+        arr = np.array(image)  # RGB
+
+        # --- EasyOCR path (primary for CJK — far more accurate than Tesseract) ---
+        easy_langs = _EASYOCR_LANG.get(self.source_lang)
+        if easy_langs:
+            result = _easy_ocr(arr, easy_langs)
+            if result:
+                return result
+            # EasyOCR not installed or returned nothing — fall through to Tesseract
+
+        # --- Tesseract fallback ---
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
 
+        # Invert dark-background images first
         if np.mean(gray) < 128:
             gray = 255 - gray
 
+        h, w = gray.shape
+
         if tess_lang in _CJK_TESS:
-            # Gentle denoise only — aggressive thresholding breaks CJK strokes
-            processed = cv2.medianBlur(gray, 3)
+            short_side = min(h, w)
+            scale = max(200 / short_side, 4.0)
+            gray = cv2.resize(gray, (int(w * scale), int(h * scale)),
+                              interpolation=cv2.INTER_CUBIC)
+            pad = 30
+            gray = cv2.copyMakeBorder(gray, pad, pad, pad, pad,
+                                      cv2.BORDER_CONSTANT, value=255)
+            _, processed = cv2.threshold(gray, 0, 255,
+                                         cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         else:
+            if h < 100 or w < 100:
+                scale = max(100 / h, 100 / w, 2.0)
+                gray = cv2.resize(gray, (int(w * scale), int(h * scale)),
+                                  interpolation=cv2.INTER_CUBIC)
             processed = cv2.adaptiveThreshold(
                 gray, 255,
                 cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -195,17 +248,25 @@ class ScreenProcessor:
             )
 
         import pytesseract as tess
-        config = f"--psm 6 --oem 3 -l {tess_lang}"
-        raw = tess.image_to_string(processed, config=config)
 
-        # Remove only control characters; keep all unicode (CJK, Arabic, etc.)
-        cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw)
-        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-        cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
-        return cleaned.strip()
+        oem = 1 if tess_lang in _CJK_TESS else 3
+
+        def _run(psm: int) -> str:
+            cfg = f"--psm {psm} --oem {oem} -l {tess_lang}"
+            raw = tess.image_to_string(processed, config=cfg)
+            cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw)
+            cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+            cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+            return cleaned.strip()
+
+        if tess_lang in _CJK_TESS:
+            result = _run(7) or _run(6) or _run(8) or _run(10)
+        else:
+            result = _run(6)
+        return result
 
     def _translate(self, text: str) -> str:
-        if not text or len(text) < 2:
+        if not text:
             return ""
         try:
             return self._translator.translate(text[:1500]) or ""

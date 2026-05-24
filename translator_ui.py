@@ -48,8 +48,8 @@ SRC_CODE     = {n: c for n, c in SOURCE_LANGS}
 
 class TranslatorUI:
 
-    WIN_W = 700
-    WIN_H = 620
+    WIN_W = 760
+    WIN_H = 780
 
     def __init__(self, processor):
         self._proc          = processor
@@ -168,9 +168,9 @@ class TranslatorUI:
                  font=("Consolas", 7, "bold")).pack(anchor="w", padx=4, pady=(4, 0))
 
         self._preview_lbl = tk.Label(
-            pf, bg=BG3, width=22, height=7,
+            pf, bg=BG3, width=40, height=14,
             text="Select a region\nto see preview",
-            fg=DIM, font=("Segoe UI", 8),
+            fg=DIM, font=("Segoe UI", 9),
         )
         self._preview_lbl.pack(padx=4, pady=(0, 4))
 
@@ -183,9 +183,9 @@ class TranslatorUI:
 
         det_scroll = tk.Scrollbar(df, orient="vertical")
         self._detected_txt = tk.Text(
-            df, bg=BG2, fg=TEXT, font=("Consolas", 9),
+            df, bg=BG2, fg=TEXT, font=("Consolas", 12),
             wrap="word", relief="flat", state="disabled",
-            yscrollcommand=det_scroll.set, height=7,
+            yscrollcommand=det_scroll.set, height=8,
         )
         det_scroll.config(command=self._detected_txt.yview)
         det_scroll.pack(side="right", fill="y")
@@ -207,7 +207,7 @@ class TranslatorUI:
         rs = tk.Scrollbar(rf, orient="vertical")
         self._reading_txt = tk.Text(
             rf, bg=BG2, fg=GOLD,
-            font=("Segoe UI", 10), wrap="word",
+            font=("Segoe UI", 13), wrap="word",
             relief="flat", state="disabled",
             yscrollcommand=rs.set, height=3,
         )
@@ -235,7 +235,7 @@ class TranslatorUI:
         ts = tk.Scrollbar(body, orient="vertical")
         self._translation_txt = tk.Text(
             body, bg=BG2, fg=WHITE,
-            font=("Segoe UI", 11), wrap="word",
+            font=("Segoe UI", 14), wrap="word",
             relief="flat", state="disabled",
             yscrollcommand=ts.set,
         )
@@ -325,7 +325,7 @@ class TranslatorUI:
                    translation: str, x1, y1, x2, y2):
         # Thumbnail
         thumb = image.copy()
-        thumb.thumbnail((176, 126), Image.LANCZOS)
+        thumb.thumbnail((300, 210), Image.LANCZOS)
         photo = ImageTk.PhotoImage(thumb)
         self._preview_lbl.config(image=photo, text="")
         self._preview_photo = photo
