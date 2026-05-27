@@ -8,6 +8,7 @@ then see the detected text and translation in this panel.
 import ctypes
 import ctypes.wintypes
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk
 
@@ -16,6 +17,12 @@ from PIL import Image, ImageTk
 # Transparency
 OPACITY_DEFAULT = 0.88        # initial window alpha
 ACRYLIC_TINT    = 0x80000000  # ARGB semi-transparent black tint
+
+# Global hotkey (Ctrl+Space)
+_MOD_CTRL  = 0x0002
+_VK_SPACE  = 0x20
+_WM_HOTKEY = 0x0312
+_HK_ID     = 1
 
 class _ACCENTPOLICY(ctypes.Structure):
     _fields_ = [("AccentState", ctypes.c_uint), ("AccentFlags", ctypes.c_uint),
@@ -76,9 +83,11 @@ class TranslatorUI:
         self._proc          = processor
         self._busy          = False
         self._preview_photo = None
+        self._quit_flag     = False
 
         self._build_root()
         self._build_ui()
+        self._setup_hotkey()
 
     # ------------------------------------------------------------------
     # Window construction
@@ -98,6 +107,7 @@ class TranslatorUI:
         self.root.geometry(f"{self.WIN_W}x{self.WIN_H}+{x}+{y}")
         self.root.protocol("WM_DELETE_WINDOW", self._quit)
 
+        self.root.wm_attributes("-toolwindow", True)  # hide from taskbar
         self.root.update()
         try:
             _apply_acrylic(self.root.winfo_id(), ACRYLIC_TINT)
@@ -303,7 +313,7 @@ class TranslatorUI:
 
     def run(self):
         self._status_var.set(
-            "Press 'Capture Region' or Space — set Source language for Japanese / Chinese / Korean"
+            "Space: capture  |  Ctrl+Space: show/hide  |  Set Source language for CJK"
         )
         self.root.bind("<space>", lambda _: self._start_capture())
         self.root.mainloop()
@@ -424,5 +434,32 @@ class TranslatorUI:
         except Exception:
             pass
 
+    # ------------------------------------------------------------------
+    # Global hotkey (Ctrl+Space) — show / hide
+    # ------------------------------------------------------------------
+
+    def _setup_hotkey(self):
+        ctypes.windll.user32.RegisterHotKey(None, _HK_ID, _MOD_CTRL, _VK_SPACE)
+        threading.Thread(target=self._hotkey_listener, daemon=True).start()
+
+    def _hotkey_listener(self):
+        msg = ctypes.wintypes.MSG()
+        while not self._quit_flag:
+            if ctypes.windll.user32.PeekMessageW(ctypes.byref(msg), None,
+                                                  _WM_HOTKEY, _WM_HOTKEY, 1):
+                if msg.wParam == _HK_ID:
+                    self.root.after(0, self._toggle_visibility)
+            time.sleep(0.05)
+        ctypes.windll.user32.UnregisterHotKey(None, _HK_ID)
+
+    def _toggle_visibility(self):
+        if self.root.state() == "withdrawn":
+            self.root.deiconify()
+            self.root.lift()
+            self.root.focus_force()
+        else:
+            self.root.withdraw()
+
     def _quit(self):
+        self._quit_flag = True
         self.root.destroy()
