@@ -5,11 +5,32 @@ Translator Screen — region-select UI.
 Click "Capture Region" (or press Space), drag to select any area on screen,
 then see the detected text and translation in this panel.
 """
+import ctypes
+import ctypes.wintypes
 import threading
 import tkinter as tk
 from tkinter import ttk
 
 from PIL import Image, ImageTk
+
+# Transparency
+OPACITY_DEFAULT = 0.88        # initial window alpha
+ACRYLIC_TINT    = 0x80000000  # ARGB semi-transparent black tint
+
+class _ACCENTPOLICY(ctypes.Structure):
+    _fields_ = [("AccentState", ctypes.c_uint), ("AccentFlags", ctypes.c_uint),
+                ("GradientColor", ctypes.c_uint), ("AnimationId", ctypes.c_uint)]
+
+class _WCAD(ctypes.Structure):
+    _fields_ = [("Attribute", ctypes.c_int), ("Data", ctypes.c_void_p),
+                ("SizeOfData", ctypes.c_size_t)]
+
+def _apply_acrylic(hwnd: int, tint: int) -> None:
+    accent = _ACCENTPOLICY(AccentState=4, AccentFlags=2, GradientColor=tint)
+    data   = _WCAD(Attribute=19,
+                   Data=ctypes.cast(ctypes.pointer(accent), ctypes.c_void_p),
+                   SizeOfData=ctypes.sizeof(accent))
+    ctypes.windll.user32.SetWindowCompositionAttribute(hwnd, ctypes.byref(data))
 
 BG     = "#0f0f1a"
 BG2    = "#1a1a2e"
@@ -77,6 +98,13 @@ class TranslatorUI:
         self.root.geometry(f"{self.WIN_W}x{self.WIN_H}+{x}+{y}")
         self.root.protocol("WM_DELETE_WINDOW", self._quit)
 
+        self.root.update()
+        try:
+            _apply_acrylic(self.root.winfo_id(), ACRYLIC_TINT)
+        except Exception:
+            pass  # Windows 10 / VM fallback — plain alpha still applies
+        self.root.wm_attributes("-alpha", OPACITY_DEFAULT)
+
     def _build_ui(self):
         self._build_topbar()
         self._build_capture_row()
@@ -103,6 +131,15 @@ class TranslatorUI:
             font=("Segoe UI", 9),
         ).pack(side="right", padx=(0, 8))
         self.root.wm_attributes("-topmost", True)
+
+        # Opacity slider
+        tk.Label(bar, text="Opacity:", bg=BG3, fg=DIM,
+                 font=("Segoe UI", 9)).pack(side="right", padx=(0, 2))
+        self._opacity_var = tk.DoubleVar(value=OPACITY_DEFAULT)
+        ttk.Scale(bar, from_=0.3, to=1.0, orient="horizontal", length=80,
+                  variable=self._opacity_var,
+                  command=lambda v: self.root.wm_attributes("-alpha", float(v)),
+                  ).pack(side="right", padx=(0, 6), pady=10)
 
         # Target language
         tk.Label(bar, text="→ Target:", bg=BG3, fg=DIM,
