@@ -439,10 +439,11 @@ class TranslatorUI:
     # ------------------------------------------------------------------
 
     def _setup_hotkey(self):
-        ctypes.windll.user32.RegisterHotKey(None, _HK_ID, _MOD_CTRL, _VK_SPACE)
         threading.Thread(target=self._hotkey_listener, daemon=True).start()
 
     def _hotkey_listener(self):
+        # RegisterHotKey must be called in the SAME thread that polls messages
+        ctypes.windll.user32.RegisterHotKey(None, _HK_ID, _MOD_CTRL, _VK_SPACE)
         msg = ctypes.wintypes.MSG()
         while not self._quit_flag:
             if ctypes.windll.user32.PeekMessageW(ctypes.byref(msg), None,
