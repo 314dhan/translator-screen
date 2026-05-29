@@ -7,12 +7,13 @@ block_cipher = None
 
 # Collect mediapipe data files (face mesh models, etc.)
 mediapipe_datas = collect_data_files("mediapipe")
+easyocr_datas = collect_data_files("easyocr")
 
 a = Analysis(
     ["main.py"],
     pathex=[os.getcwd()],
     binaries=[],
-    datas=mediapipe_datas,
+    datas=mediapipe_datas + easyocr_datas,
     hiddenimports=[
         "tkinter",
         "tkinter.ttk",

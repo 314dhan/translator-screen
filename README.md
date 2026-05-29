@@ -57,15 +57,7 @@ Default install path: `C:\Program Files\Tesseract-OCR\`
 
 For CJK languages (Japanese, Chinese, Korean) you also need the matching language data packs — see [USAGE.md](USAGE.md#tesseract-language-packs) for details.
 
-### 2. Update the Tesseract path
-
-Open `screen_processor.py` and update line 15 to match your install location:
-
-```python
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-```
-
-### 3. Install Python dependencies
+### 2. Install Python dependencies
 
 ```bat
 install.bat
@@ -77,7 +69,7 @@ Or manually:
 pip install -r requirements.txt
 ```
 
-### 4. Run the app
+### 3. Run the app
 
 ```bat
 python main.py
