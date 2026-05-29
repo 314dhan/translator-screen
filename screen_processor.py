@@ -2,18 +2,51 @@
 """
 OCR and translation for an explicitly provided PIL image.
 """
+import os
 import re
+import shutil
 import threading
 
 import cv2
 import numpy as np
 from PIL import Image
 
+def _find_tesseract() -> str | None:
+    """Locate the Tesseract binary via registry, PATH, or common install dirs."""
+    # 1. Windows registry (most reliable on a standard install)
+    try:
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Tesseract-OCR")
+        install_dir, _ = winreg.QueryValueEx(key, "InstallDir")
+        winreg.CloseKey(key)
+        candidate = os.path.join(install_dir, "tesseract.exe")
+        if os.path.isfile(candidate):
+            return candidate
+    except (OSError, ImportError):
+        pass
+
+    # 2. System PATH
+    found = shutil.which("tesseract")
+    if found:
+        return found
+
+    # 3. Common install locations
+    for candidate in [
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+        r"C:\Users\Public\Tesseract-OCR\tesseract.exe",
+    ]:
+        if os.path.isfile(candidate):
+            return candidate
+
+    return None
+
+
 try:
     import pytesseract
-    pytesseract.pytesseract.tesseract_cmd = (
-        r"C:\Users\rdhan\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
-    )
+    _tess_path = _find_tesseract()
+    if _tess_path:
+        pytesseract.pytesseract.tesseract_cmd = _tess_path
     _TESSERACT_OK = True
     try:
         pytesseract.get_tesseract_version()
