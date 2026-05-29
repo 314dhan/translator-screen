@@ -225,8 +225,17 @@ class TranslatorUI:
         df = tk.Frame(top, bg=BG)
         df.pack(side="left", fill="both", expand=True)
 
-        tk.Label(df, text="DETECTED TEXT", bg=BG, fg=ACCENT,
-                 font=("Consolas", 7, "bold")).pack(anchor="w")
+        dh = tk.Frame(df, bg=BG)
+        dh.pack(fill="x")
+        tk.Label(dh, text="DETECTED TEXT", bg=BG, fg=ACCENT,
+                 font=("Consolas", 7, "bold")).pack(side="left")
+        tk.Button(
+            dh, text="Copy",
+            command=self._copy_detected,
+            bg=BG3, fg=DIM, relief="flat",
+            activebackground=BG2, activeforeground=WHITE,
+            font=("Segoe UI", 8), padx=6,
+        ).pack(side="right")
 
         det_scroll = tk.Scrollbar(df, orient="vertical")
         self._detected_txt = tk.Text(
@@ -430,6 +439,15 @@ class TranslatorUI:
         try:
             self.root.clipboard_append(
                 self._translation_txt.get("1.0", "end").strip()
+            )
+        except Exception:
+            pass
+
+    def _copy_detected(self):
+        self.root.clipboard_clear()
+        try:
+            self.root.clipboard_append(
+                self._detected_txt.get("1.0", "end").strip()
             )
         except Exception:
             pass
