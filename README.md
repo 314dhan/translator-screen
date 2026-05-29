@@ -85,6 +85,18 @@ python main.py
 
 Or double-click **`TranslatorScreen.vbs`** to launch without a console window.
 
+## Building an Executable
+
+To build a standalone `.exe` (no Python required to run):
+
+```bat
+build.bat
+```
+
+The output is in `dist\TranslatorScreen\`. Share the entire folder — the `.exe` alone won't work without the supporting files next to it.
+
+> The folder will be **1–2 GB** because EasyOCR bundles PyTorch. Tesseract OCR still needs to be installed separately by the end user, but its path is detected automatically.
+
 ## Usage
 
 1. Press **`Space`** (or click **Capture Region**) — the panel minimises and a crosshair overlay appears.
