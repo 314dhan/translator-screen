@@ -113,6 +113,17 @@ class TranslatorUI:
             _apply_acrylic(self.root.winfo_id(), ACRYLIC_TINT)
         except Exception:
             pass  # Windows 10 / VM fallback — plain alpha still applies
+        try:
+            # WDA_EXCLUDEFROMCAPTURE: hide from screen capture (Zoom, Meet, OBS, etc.)
+            # Requires Windows 10 build 19041+
+            # GA_ROOT=2 walks up to the true Win32 top-level HWND
+            child_hwnd = self.root.winfo_id()
+            hwnd = ctypes.windll.user32.GetAncestor(child_hwnd, 2)
+            if not hwnd:
+                hwnd = child_hwnd
+            ctypes.windll.user32.SetWindowDisplayAffinity(hwnd, 0x11)
+        except Exception:
+            pass
         self.root.wm_attributes("-alpha", OPACITY_DEFAULT)
 
     def _build_ui(self):
